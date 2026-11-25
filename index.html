@@ -1,0 +1,24 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><title>Warp 8D</title><style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,monospace}body{background:#02040a;color:#e0f7fa;overflow:hidden;touch-action:none}canvas{display:block;width:100vw;height:100vh}
+.hud{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;pointer-events:none;font-size:.82rem;text-shadow:0 0 8px #00e5ff}
+.panel{background:rgba(4,16,32,.75);border:1px solid rgba(0,229,255,.35);padding:8px 12px;border-radius:10px}
+.controls{position:fixed;bottom:16px;left:12px;right:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+button{background:rgba(0,30,60,.85);color:#00e5ff;border:1px solid #00e5ff;padding:12px 6px;border-radius:10px;font-weight:bold;font-size:.8rem}
+button.active{background:#00e5ff;color:#02040a;box-shadow:0 0 18px #00e5ff}button.fold.active{background:#d500f9;border-color:#ea80fc;color:#fff}button.tp{border-color:#ffab00;color:#ffab00}
+</style></head><body><canvas id="space"></canvas>
+<div class="hud"><div class="panel"><div>SECTOR: <b id="secVal">ALPHA-001</b></div><div>VEL: <b id="velVal">1.0x c</b></div></div><div class="panel" style="text-align:right"><div>PLIEGUE: <b id="foldVal">0% (Plano)</b></div><div>VUELTAS/S: <b id="lapVal">0.00</b></div></div></div>
+<div class="controls"><button id="btnWarp" onclick="toggleWarp()">⚡ WARP 10¹¹x</button><button id="btnFold" class="fold" onclick="toggleFold()">🌀 DOBLAR</button><button class="tp" onclick="teleport()">✨ SALTO</button></div>
+<script>
+const canvas=document.getElementById("space"),ctx=canvas.getContext("2d");let w,h,cx,cy;
+function resize(){w=canvas.width=window.innerWidth;h=canvas.height=window.innerHeight;cx=w/2;cy=h/2;}
+window.addEventListener("resize",resize);resize();
+let warp=false,folded=false,foldFactor=0,speed=2,targetSpeed=2,flash=0,rotX=0,rotY=0,dragging=false,lastX=0,lastY=0,sector=1,laps=0;
+const stars=Array.from({length:400},()=>({x:(Math.random()-.5)*2000,y:(Math.random()-.5)*2000,z:Math.random()*2000+1,hue:Math.random()>.8?280:190}));
+canvas.addEventListener("pointerdown",e=>{dragging=true;lastX=e.clientX;lastY=e.clientY;});
+window.addEventListener("pointerup",()=>dragging=false);
+window.addEventListener("pointermove",e=>{if(!dragging)return;rotY+=(e.clientX-lastX)*.004;rotX+=(e.clientY-lastY)*.004;lastX=e.clientX;lastY=e.clientY;});
+function toggleWarp(){warp=!warp;targetSpeed=warp?140:2;document.getElementById("btnWarp").classList.toggle("active",warp);}
+function toggleFold(){folded=!folded;const b=document.getElementById("btnFold");b.classList.toggle("active",folded);b.innerText=folded?"🌌 DESDOBLAR":"🌀 DOBLAR";}
+function teleport(){flash=1;sector=Math.floor(Math.random()*8999+1000);stars.forEach(s=>{s.x=(Math.random()-.5)*2000;s.y=(Math.random()-.5)*2000;s.z=Math.random()*2000+1;});document.getElementById("secVal").innerText="OMEGA-"+sector;}
+function drawGrid(){ctx.strokeStyle=folded?"rgba(213,0,249,.28)":"rgba(0,229,255,.14)";ctx.lineWidth=1;for(let r=1;r<=7;r++){ctx.beginPath();const baseR=r*75*(1-foldFactor*.65);for(let a=0;a<=Math.PI*2+.1;a+=.15){const rad=Math.max(8,baseR+Math.sin(a*4+foldFactor*6)*(foldFactor*35)),px=cx+Math.cos(a+rotY)*rad,py=cy+Math.sin(a+rotX)*rad*(1-foldFactor*.35);a===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.stroke();}}
+function loop(){speed+=(targetSpeed-speed)*.08;foldFactor+=((folded?1:0)-foldFactor)*.06;ctx.fillStyle=warp?"rgba(2,4,10,.25)":"rgba(2,4,10,.55)";ctx.fillRect(0,0,w,h);drawGrid();for(const s of stars){const oldZ=s.z;s.z-=speed*(1+foldFactor*2.5);if(s.z<=1){s.z=2000;s.x=(Math.random()-.5)*2000;s.y=(Math.random()-.5)*2000;continue;}const c=1-foldFactor*.72,sx=cx+(s.x*c/s.z)*320,sy=cy+(s.y*c/s.z)*320,ox=cx+(s.x*c/oldZ)*320,oy=cy+(s.y*c/oldZ)*320;ctx.strokeStyle=`hsla(${folded?285:s.hue},100%,70%,${1-s.z/2000})`;ctx.lineWidth=Math.max(.8,(1-s.z/2000)*3.2);ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(sx,sy);ctx.stroke();}if(foldFactor>.05){const g=ctx.createRadialGradient(cx,cy,2,cx,cy,90*foldFactor);g.addColorStop(0,"rgba(255,255,255,.9)");g.addColorStop(.4,"rgba(213,0,249,.5)");g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,90*foldFactor,0,Math.PI*2);ctx.fill();}if(flash>.01){ctx.fillStyle=`rgba(255,235,180,${flash})`;ctx.fillRect(0,0,w,h);flash*=.86;}document.getElementById("velVal").innerText=warp?(1e11*(1+foldFactor*9)).toExponential(2)+"x c":(1+foldFactor*50).toFixed(1)+"x c";document.getElementById("foldVal").innerText=`${Math.round(foldFactor*100)}% (${folded?"Doblado":"Plano"})`;document.getElementById("lapVal").innerText=warp?(1000*(1+foldFactor*4)).toFixed(0):(foldFactor*12).toFixed(2);requestAnimationFrame(loop);}loop();</script></body></html>
